@@ -51,7 +51,8 @@ document.addEventListener('DOMContentLoaded', function() {
          * Cria e retorna o HTML de um card de presente.
          */
         function createGiftCardHtml(giftId, giftData) {
-            const isPurchased = giftData.status === 'comprado';
+            // Verifica se o presente tem status e se foi comprado
+            const isPurchased = giftData.status && giftData.status.toLowerCase() === 'comprado';
             const buttonText = isPurchased ? 'Presente Comprado' : 'Ver na Loja';
             const buttonDisabled = isPurchased ? 'disabled' : '';
             const purchasedClass = isPurchased ? 'purchased' : '';
@@ -61,16 +62,21 @@ document.addEventListener('DOMContentLoaded', function() {
                 ? `<img src="${giftData.image}" class="card-img-top img-fluid" alt="Imagem do presente ${giftData.title}">` 
                 : `<div class="card-img-top-placeholder d-flex align-items-center justify-content-center bg-light text-muted">Sem Imagem</div>`;
 
+            // Verifica se o presente tem título e descrição.
+            const title = giftData.title ? giftData.title : 'Presente Indefinido';
+            const description = giftData.description ? giftData.description : 'Sem descrição.';
+            const link = giftData.link ? giftData.link : '#';
+
             return `
                 <div class="col present-item ${purchasedClass}" data-gift-id="${giftId}" data-category="${giftData.category}">
                     <div class="card h-100 shadow-sm">
                         ${imageHtml}
                         <div class="card-body d-flex flex-column"> 
                             <div>
-                                <h5 class="card-title">${giftData.title}</h5>
-                                <p class="card-text">${giftData.description}</p>
+                                <h5 class="card-title">${title}</h5>
+                                <p class="card-text">${description}</p>
                             </div>
-                            <a href="${giftData.link}" target="_blank" class="btn btn-primary-alt mt-auto ${buttonDisabled}" ${buttonDisabled} data-gift-id="${giftId}">
+                            <a href="${link}" target="_blank" class="btn btn-primary-alt mt-auto ${buttonDisabled}" ${buttonDisabled} data-gift-id="${giftId}">
                                 ${buttonText}
                             </a>
                         </div>

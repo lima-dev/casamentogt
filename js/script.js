@@ -2,11 +2,8 @@
 
 document.addEventListener('DOMContentLoaded', function() {
     // --- Lógica do Contador Regressivo (Apenas para a página index.html) ---
-    // Define a data-alvo para o countdown (casamento).
     const countdownDate = new Date('December 31, 2025 18:00:00').getTime(); 
 
-    // O elemento 'countdown-timer' existe apenas na index.html.
-    // Esta verificação garante que o setInterval só seja executado se o contador estiver presente.
     if (document.getElementById('countdown-timer')) {
         const countdownInterval = setInterval(function() {
             const now = new Date().getTime();
@@ -35,86 +32,118 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 1000);
     }
 
-    // --- Lógica de Filtro, Pesquisa e Firebase (Apenas na página presentes.html) ---
+    // --- Lógica de Lista de Presentes com Firebase (Apenas na página presentes.html) ---
     if (window.location.pathname.includes('presentes.html')) {
         const filterButtons = document.querySelectorAll('[data-filter]');
         const categorySections = document.querySelectorAll('.category-section');
         const searchInput = document.getElementById('search-input');
         const clearSearchButton = document.getElementById('clear-search');
-        const presentItems = document.querySelectorAll('.present-item');
         const confirmacaoModal = new bootstrap.Modal(document.getElementById('confirmacaoModal'));
         const btnConfirmarCompra = document.getElementById('btnConfirmarCompra');
 
         let currentFilter = 'all'; 
         let lastClickedGift = null;
         
-        // Inicializa a referência ao banco de dados do Firebase
         const database = firebase.database();
         const giftsRef = database.ref('gifts');
 
         /**
-         * Aplica os filtros de categoria e pesquisa nos presentes.
+         * Cria e retorna o HTML de um card de presente.
          */
-        function applyFiltersAndSearch() {
-            const searchTerm = searchInput.value.toLowerCase().trim();
+        function createGiftCardHtml(giftId, giftData) {
+            const isPurchased = giftData.status === 'comprado';
+            const buttonText = isPurchased ? 'Presente Comprado' : 'Ver na Loja';
+            const buttonDisabled = isPurchased ? 'disabled' : '';
+            const purchasedClass = isPurchased ? 'purchased' : '';
+            
+            // Verifica se o presente tem uma imagem
+            const imageHtml = giftData.image 
+                ? `<img src="${giftData.image}" class="card-img-top" alt="${giftData.title}">` 
+                : '';
 
-            categorySections.forEach(section => {
-                const sectionCategory = section.id.replace('-section', '');
-                
-                if (currentFilter === 'all' || sectionCategory === currentFilter) {
-                    section.style.display = 'block';
-
-                    const itemsInSection = section.querySelectorAll('.present-item');
-                    let anyItemVisibleInSection = false; 
-
-                    itemsInSection.forEach(item => {
-                        const title = item.querySelector('.card-title')?.textContent.toLowerCase() || '';
-                        const description = item.querySelector('.card-text')?.textContent.toLowerCase() || '';
-
-                        if (searchTerm === '' || title.includes(searchTerm) || description.includes(searchTerm)) {
-                            item.style.display = 'block';
-                            anyItemVisibleInSection = true;
-                        } else {
-                            item.style.display = 'none';
-                        }
-                    });
-
-                    if (!anyItemVisibleInSection && searchTerm !== '') {
-                        section.style.display = 'none';
-                    }
-
-                } else {
-                    section.style.display = 'none';
-                }
-            });
+            return `
+                <div class="col present-item ${purchasedClass}" data-gift-id="${giftId}" data-category="${giftData.category}">
+                    <div class="card h-100 shadow-sm">
+                        ${imageHtml}
+                        <div class="card-body">
+                            <div>
+                                <h5 class="card-title">${giftData.title}</h5>
+                                <p class="card-text">${giftData.description}</p>
+                            </div>
+                            <a href="${giftData.link}" target="_blank" class="btn btn-primary-alt mt-auto ${buttonDisabled}" ${buttonDisabled} data-gift-id="${giftId}">
+                                ${buttonText}
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            `;
         }
 
         /**
-         * Atualiza o estado visual de todos os presentes baseando-se nos dados do Firebase.
+         * Renderiza todos os presentes na página, baseando-se nos dados do Firebase.
          */
-        function updateGiftStatus(gifts) {
-            presentItems.forEach(item => {
-                const giftTitle = item.querySelector('h5').textContent.trim();
-                const giftData = gifts ? gifts[giftTitle] : null;
-                
-                if (giftData && giftData.status === 'comprado') {
-                    item.classList.add('purchased');
-                    const link = item.querySelector('a.btn, button.btn');
-                    if (link) {
-                        link.textContent = 'Presente Comprado';
-                        link.setAttribute('disabled', 'true');
-                        link.classList.add('disabled');
-                    }
-                } else {
-                    // Reseta o estado para garantir que funcione se for alterado no Firebase
-                    item.classList.remove('purchased');
-                    const link = item.querySelector('a.btn, button.btn');
-                    if (link) {
-                        link.textContent = 'Ver na Loja'; // Ou o texto original
-                        link.removeAttribute('disabled');
-                        link.classList.remove('disabled');
-                    }
+        function renderGifts(giftsData) {
+            // Limpa todas as seções dinâmicas
+            document.querySelectorAll('.row[id$="-list"]').forEach(list => {
+                if(list.parentElement.id !== 'lua-de-mel-section') {
+                    list.innerHTML = '';
                 }
+            });
+
+            for (const giftId in giftsData) {
+                const gift = giftsData[giftId];
+                // Ignora o presente se a categoria for 'lua-de-mel' (já está no HTML)
+                if (gift.category === 'lua-de-mel') {
+                    continue;
+                }
+
+                const listContainerId = `${gift.category}-list`;
+                const listContainer = document.getElementById(listContainerId);
+                
+                if (listContainer) {
+                    const giftHtml = createGiftCardHtml(giftId, gift);
+                    listContainer.innerHTML += giftHtml;
+                }
+            }
+
+            // Atacha os event listeners nos novos botões
+            attachEventListeners();
+        }
+
+        /**
+         * Anexa os event listeners aos botões dos presentes.
+         */
+        function attachEventListeners() {
+            const giftLinks = document.querySelectorAll('.present-item a.btn');
+            giftLinks.forEach(link => {
+                if (!link.dataset.bsToggle) { 
+                    link.addEventListener('click', function(event) {
+                        lastClickedGift = this.getAttribute('data-gift-id');
+                        
+                        setTimeout(() => {
+                            confirmacaoModal.show();
+                        }, 1000); 
+                    });
+                }
+            });
+
+            btnConfirmarCompra.addEventListener('click', function() {
+                if (lastClickedGift) {
+                    giftsRef.child(lastClickedGift).update({ status: 'comprado' })
+                        .then(() => {
+                            console.log("Status atualizado no Firebase!");
+                        })
+                        .catch((error) => {
+                            console.error("Erro ao atualizar o status: ", error);
+                        });
+                    
+                    confirmacaoModal.hide();
+                    lastClickedGift = null;
+                }
+            });
+
+            document.getElementById('confirmacaoModal').addEventListener('hidden.bs.modal', function () {
+                lastClickedGift = null;
             });
         }
 
@@ -124,102 +153,70 @@ document.addEventListener('DOMContentLoaded', function() {
                 filterButtons.forEach(btn => btn.classList.remove('active'));
                 this.classList.add('active');
                 currentFilter = this.getAttribute('data-filter');
-                applyFiltersAndSearch();
+                
+                categorySections.forEach(section => {
+                    const sectionCategory = section.id.replace('-section', '');
+                    if (currentFilter === 'all' || sectionCategory === currentFilter) {
+                        section.style.display = 'block';
+                    } else {
+                        section.style.display = 'none';
+                    }
+                });
             });
         });
 
-        searchInput.addEventListener('keyup', applyFiltersAndSearch);
+        searchInput.addEventListener('keyup', () => {
+             const searchTerm = searchInput.value.toLowerCase().trim();
+             document.querySelectorAll('.present-item').forEach(item => {
+                 const title = item.querySelector('.card-title')?.textContent.toLowerCase() || '';
+                 const description = item.querySelector('.card-text')?.textContent.toLowerCase() || '';
+
+                 if (searchTerm === '' || title.includes(searchTerm) || description.includes(searchTerm)) {
+                     item.style.display = 'block';
+                 } else {
+                     item.style.display = 'none';
+                 }
+             });
+        });
+
         clearSearchButton.addEventListener('click', function() {
             searchInput.value = '';
-            applyFiltersAndSearch();
-        });
-
-        // --- Lógica de Compra com Firebase ---
-        presentItems.forEach(item => {
-            const link = item.querySelector('a.btn, button.btn');
-            if (link && !link.dataset.bsToggle) { 
-                link.addEventListener('click', function() {
-                    const giftTitle = item.querySelector('h5').textContent.trim();
-                    lastClickedGift = giftTitle;
-                    
-                    // Exibe o modal de confirmação na volta do usuário
-                    setTimeout(() => {
-                        confirmacaoModal.show();
-                    }, 1000); 
-                });
-            }
-        });
-
-        btnConfirmarCompra.addEventListener('click', function() {
-            if (lastClickedGift) {
-                // Atualiza o status do presente no Firebase
-                giftsRef.child(lastClickedGift).update({ status: 'comprado' })
-                    .then(() => {
-                        console.log("Status atualizado no Firebase!");
-                        // A atualização da UI é feita automaticamente pelo 'on'
-                    })
-                    .catch((error) => {
-                        console.error("Erro ao atualizar o status: ", error);
-                    });
-                
-                confirmacaoModal.hide();
-                lastClickedGift = null;
-            }
-        });
-
-        // Evento para quando o modal for fechado
-        document.getElementById('confirmacaoModal').addEventListener('hidden.bs.modal', function () {
-            lastClickedGift = null;
+            // Simula um clique no botão de todas as categorias para resetar a visualização
+            document.querySelector('[data-filter="all"]').click();
         });
 
         // Inicialização: Lê o estado inicial do banco de dados e escuta por mudanças
         giftsRef.on('value', (snapshot) => {
             const giftsData = snapshot.val();
-            updateGiftStatus(giftsData);
-            applyFiltersAndSearch();
+            renderGifts(giftsData);
+            // Simula um clique no botão "Todas as Categorias" para aplicar o filtro inicial
+            document.querySelector('[data-filter="all"]').click(); 
         });
-
-        // Simula o clique no botão "Todas as Categorias" ao carregar a página
-        const allCategoryButton = document.querySelector('[data-filter="all"]');
-        if (allCategoryButton) {
-            allCategoryButton.click(); 
-        }
     }
 
     // --- Lógica para Efeito de Fade entre Páginas ---
-
     const overlay = document.getElementById('pageTransitionOverlay');
-
-    // 1. Lógica de Fade-In ao Carregar a Página
     requestAnimationFrame(() => {
-        overlay.classList.add('is-loaded'); // Inicia o fade-in (opacidade 0)
+        overlay.classList.add('is-loaded'); 
     });
     
-    // Oculta o elemento do fluxo DOM depois que a transição de fade-in termina.
     overlay.addEventListener('transitionend', function() {
         if (overlay.classList.contains('is-loaded') && overlay.style.opacity === '0') {
             overlay.style.visibility = 'hidden';
-            overlay.classList.remove('is-loaded'); // Remove a classe para resetar
+            overlay.classList.remove('is-loaded');
         }
     });
 
-    // 2. Lógica de Fade-Out ao Clicar em Links Internos
     document.querySelectorAll('a[href^="."], a[href^="/"]').forEach(link => {
         if (link.hash && link.pathname === window.location.pathname) { return; }
         if (link.target === '_blank' || link.getAttribute('data-bs-toggle') === 'modal') { return; }
-
         link.addEventListener('click', function(event) {
             event.preventDefault();
-
             const targetUrl = this.href;
-
-            // Inicia o fade-out do overlay
-            overlay.classList.add('is-leaving'); // Torna o overlay opaco para cobrir a saída
-
-            // Redireciona após a duração da transição
+            overlay.classList.add('is-leaving');
             setTimeout(() => {
                 window.location.href = targetUrl;
-            }, 800); // Deve corresponder à duração da transição no CSS
+            }, 800); 
         });
     });
 });

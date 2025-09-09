@@ -2,7 +2,7 @@
 
 document.addEventListener('DOMContentLoaded', function() {
     // --- Lógica do Contador Regressivo (Apenas para a página index.html) ---
-    const countdownDate = new Date('December 31, 2025 18:00:00').getTime(); 
+    const countdownDate = new Date('Octuber 25, 2025 15:30:00').getTime(); 
 
     if (document.getElementById('countdown-timer')) {
         const countdownInterval = setInterval(function() {

@@ -179,11 +179,12 @@ document.addEventListener('DOMContentLoaded', function() {
              });
         });
 
-        clearSearchButton.addEventListener('click', function() {
-            searchInput.value = '';
-            // Simula um clique no botão de todas as categorias para resetar a visualização
-            document.querySelector('[data-filter="all"]').click();
-        });
+        if (clearSearchButton) {
+            clearSearchButton.addEventListener('click', function() {
+                searchInput.value = '';
+                document.querySelector('[data-filter="all"]').click();
+            });
+        }
 
         // Inicialização: Lê o estado inicial do banco de dados e escuta por mudanças
         giftsRef.on('value', (snapshot) => {

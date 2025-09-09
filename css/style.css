@@ -363,6 +363,7 @@ h2.mb-4 {
 }
 .btn-close {
   filter: invert(1);
+  color: #212529;
 }
 
 

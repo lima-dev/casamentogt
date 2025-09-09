@@ -56,16 +56,16 @@ document.addEventListener('DOMContentLoaded', function() {
             const buttonDisabled = isPurchased ? 'disabled' : '';
             const purchasedClass = isPurchased ? 'purchased' : '';
             
-            // Verifica se o presente tem uma imagem
+            // Verifica se o presente tem uma imagem. Adiciona um placeholder se não tiver.
             const imageHtml = giftData.image 
-                ? `<img src="${giftData.image}" class="card-img-top" alt="${giftData.title}">` 
-                : '';
+                ? `<img src="${giftData.image}" class="card-img-top img-fluid" alt="Imagem do presente ${giftData.title}">` 
+                : `<div class="card-img-top-placeholder d-flex align-items-center justify-content-center bg-light text-muted">Sem Imagem</div>`;
 
             return `
                 <div class="col present-item ${purchasedClass}" data-gift-id="${giftId}" data-category="${giftData.category}">
                     <div class="card h-100 shadow-sm">
                         ${imageHtml}
-                        <div class="card-body">
+                        <div class="card-body d-flex flex-column"> 
                             <div>
                                 <h5 class="card-title">${giftData.title}</h5>
                                 <p class="card-text">${giftData.description}</p>
@@ -127,20 +127,23 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
 
-            btnConfirmarCompra.addEventListener('click', function() {
-                if (lastClickedGift) {
-                    giftsRef.child(lastClickedGift).update({ status: 'comprado' })
-                        .then(() => {
-                            console.log("Status atualizado no Firebase!");
-                        })
-                        .catch((error) => {
-                            console.error("Erro ao atualizar o status: ", error);
-                        });
-                    
-                    confirmacaoModal.hide();
-                    lastClickedGift = null;
-                }
-            });
+            if (btnConfirmarCompra) {
+                btnConfirmarCompra.addEventListener('click', function() {
+                    if (lastClickedGift) {
+                        giftsRef.child(lastClickedGift).update({ status: 'comprado' })
+                            .then(() => {
+                                console.log("Status atualizado no Firebase!");
+                            })
+                            .catch((error) => {
+                                console.error("Erro ao atualizar o status: ", error);
+                            });
+                        
+                        confirmacaoModal.hide();
+                        lastClickedGift = null;
+                    }
+                });
+            }
+
 
             document.getElementById('confirmacaoModal').addEventListener('hidden.bs.modal', function () {
                 lastClickedGift = null;
@@ -165,26 +168,35 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
 
-        searchInput.addEventListener('keyup', () => {
-             const searchTerm = searchInput.value.toLowerCase().trim();
-             document.querySelectorAll('.present-item').forEach(item => {
-                 const title = item.querySelector('.card-title')?.textContent.toLowerCase() || '';
-                 const description = item.querySelector('.card-text')?.textContent.toLowerCase() || '';
+        if (searchInput) {
+            searchInput.addEventListener('keyup', () => {
+                const searchTerm = searchInput.value.toLowerCase().trim();
+                document.querySelectorAll('.present-item').forEach(item => {
+                    const title = item.querySelector('.card-title')?.textContent.toLowerCase() || '';
+                    const description = item.querySelector('.card-text')?.textContent.toLowerCase() || '';
+                    const category = item.getAttribute('data-category') || '';
 
-                 if (searchTerm === '' || title.includes(searchTerm) || description.includes(searchTerm)) {
-                     item.style.display = 'block';
-                 } else {
-                     item.style.display = 'none';
-                 }
-             });
-        });
+                    if (searchTerm === '' || title.includes(searchTerm) || description.includes(searchTerm)) {
+                        if (currentFilter === 'all' || category === currentFilter) {
+                            item.style.display = 'block';
+                        } else {
+                            item.style.display = 'none';
+                        }
+                    } else {
+                        item.style.display = 'none';
+                    }
+                });
+            });
+        }
 
         if (clearSearchButton) {
             clearSearchButton.addEventListener('click', function() {
                 searchInput.value = '';
+                // Simula um clique no botão de todas as categorias para resetar a visualização
                 document.querySelector('[data-filter="all"]').click();
             });
         }
+
 
         // Inicialização: Lê o estado inicial do banco de dados e escuta por mudanças
         giftsRef.on('value', (snapshot) => {

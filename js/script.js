@@ -35,7 +35,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 1000);
     }
 
-    // --- Lógica de Filtro e Pesquisa para a Lista de Presentes (Apenas na página presentes.html) ---
+    // --- Lógica de Filtro, Pesquisa e Firebase (Apenas na página presentes.html) ---
     if (window.location.pathname.includes('presentes.html')) {
         const filterButtons = document.querySelectorAll('[data-filter]');
         const categorySections = document.querySelectorAll('.category-section');
@@ -47,6 +47,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
         let currentFilter = 'all'; 
         let lastClickedGift = null;
+        
+        // Inicializa a referência ao banco de dados do Firebase
+        const database = firebase.database();
+        const giftsRef = database.ref('gifts');
 
         /**
          * Aplica os filtros de categoria e pesquisa nos presentes.
@@ -56,12 +60,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
             categorySections.forEach(section => {
                 const sectionCategory = section.id.replace('-section', '');
-
-                // 1. Filtragem por Categoria
+                
                 if (currentFilter === 'all' || sectionCategory === currentFilter) {
                     section.style.display = 'block';
 
-                    // 2. Filtragem por Pesquisa (dentro da seção visível)
                     const itemsInSection = section.querySelectorAll('.present-item');
                     let anyItemVisibleInSection = false; 
 
@@ -77,7 +79,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         }
                     });
 
-                    // 3. Esconde a seção se nenhum item corresponder à pesquisa
                     if (!anyItemVisibleInSection && searchTerm !== '') {
                         section.style.display = 'none';
                     }
@@ -89,19 +90,29 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         /**
-         * Atualiza o estado visual de todos os presentes baseando-se no localStorage.
+         * Atualiza o estado visual de todos os presentes baseando-se nos dados do Firebase.
          */
-        function updateGiftStatus() {
+        function updateGiftStatus(gifts) {
             presentItems.forEach(item => {
-                const giftId = item.querySelector('h5').textContent.trim();
-                const isPurchased = localStorage.getItem(`gift_${giftId}`) === 'purchased';
-                if (isPurchased) {
+                const giftTitle = item.querySelector('h5').textContent.trim();
+                const giftData = gifts ? gifts[giftTitle] : null;
+                
+                if (giftData && giftData.status === 'comprado') {
                     item.classList.add('purchased');
                     const link = item.querySelector('a.btn, button.btn');
                     if (link) {
                         link.textContent = 'Presente Comprado';
                         link.setAttribute('disabled', 'true');
                         link.classList.add('disabled');
+                    }
+                } else {
+                    // Reseta o estado para garantir que funcione se for alterado no Firebase
+                    item.classList.remove('purchased');
+                    const link = item.querySelector('a.btn, button.btn');
+                    if (link) {
+                        link.textContent = 'Ver na Loja'; // Ou o texto original
+                        link.removeAttribute('disabled');
+                        link.classList.remove('disabled');
                     }
                 }
             });
@@ -118,53 +129,61 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         searchInput.addEventListener('keyup', applyFiltersAndSearch);
-
         clearSearchButton.addEventListener('click', function() {
             searchInput.value = '';
             applyFiltersAndSearch();
         });
 
-        // --- Event Listeners para a Lógica de Compra ---
+        // --- Lógica de Compra com Firebase ---
         presentItems.forEach(item => {
             const link = item.querySelector('a.btn, button.btn');
-            // Ignora links de modal (com data-bs-toggle) para não interferir na lógica de confirmação
             if (link && !link.dataset.bsToggle) { 
                 link.addEventListener('click', function() {
-                    const giftId = item.querySelector('h5').textContent.trim();
-                    lastClickedGift = giftId;
-
-                    // Abrir o pop-up na volta do usuário
+                    const giftTitle = item.querySelector('h5').textContent.trim();
+                    lastClickedGift = giftTitle;
+                    
+                    // Exibe o modal de confirmação na volta do usuário
                     setTimeout(() => {
                         confirmacaoModal.show();
-                    }, 1000); // 1 segundo após o redirecionamento
+                    }, 1000); 
                 });
             }
         });
 
         btnConfirmarCompra.addEventListener('click', function() {
             if (lastClickedGift) {
-                // Marca o item como comprado no localStorage
-                localStorage.setItem(`gift_${lastClickedGift}`, 'purchased');
-                // Atualiza a visualização do presente
-                updateGiftStatus();
-                // Fecha o modal
+                // Atualiza o status do presente no Firebase
+                giftsRef.child(lastClickedGift).update({ status: 'comprado' })
+                    .then(() => {
+                        console.log("Status atualizado no Firebase!");
+                        // A atualização da UI é feita automaticamente pelo 'on'
+                    })
+                    .catch((error) => {
+                        console.error("Erro ao atualizar o status: ", error);
+                    });
+                
                 confirmacaoModal.hide();
+                lastClickedGift = null;
             }
         });
 
-        // Evento para quando o modal for fechado (clicando no 'X' ou 'Ainda não')
+        // Evento para quando o modal for fechado
         document.getElementById('confirmacaoModal').addEventListener('hidden.bs.modal', function () {
             lastClickedGift = null;
         });
 
-        // Inicialização: Simula clique no botão "Todas as Categorias" ao carregar a página
+        // Inicialização: Lê o estado inicial do banco de dados e escuta por mudanças
+        giftsRef.on('value', (snapshot) => {
+            const giftsData = snapshot.val();
+            updateGiftStatus(giftsData);
+            applyFiltersAndSearch();
+        });
+
+        // Simula o clique no botão "Todas as Categorias" ao carregar a página
         const allCategoryButton = document.querySelector('[data-filter="all"]');
         if (allCategoryButton) {
             allCategoryButton.click(); 
         }
-
-        // Inicialização: Verifica e atualiza o estado dos presentes
-        updateGiftStatus();
     }
 
     // --- Lógica para Efeito de Fade entre Páginas ---

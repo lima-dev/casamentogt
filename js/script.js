@@ -99,9 +99,9 @@ document.addEventListener('DOMContentLoaded', function() {
             for (const giftId in giftsData) {
                 const gift = giftsData[giftId];
                 // Ignora o presente se a categoria for 'lua-de-mel' (já está no HTML)
-                if (gift.category === 'lua-de-mel') {
-                    continue;
-                }
+                // if (gift.category === 'lua-de-mel') {
+                //     continue;
+                // }
 
                 const listContainerId = `${gift.category}-list`;
                 const listContainer = document.getElementById(listContainerId);

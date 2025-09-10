@@ -52,10 +52,10 @@ document.addEventListener('DOMContentLoaded', function() {
          */
         function createGiftCardHtml(giftId, giftData) {
             const isPurchased = giftData.status && giftData.status.toLowerCase() === 'comprado';
-            const buttonText = giftData.category === 'lua-de-mel' ? 'Doar Valor' : (isPurchased ? 'Presente Comprado' : 'Ver na Loja');
+            const isPixGift = giftData.category === 'lua-de-mel';
+            const buttonText = isPixGift ? (isPurchased ? 'Doação já realizada' : 'Doar Valor') : (isPurchased ? 'Presente Comprado' : 'Ver na Loja');
             const buttonDisabled = isPurchased ? 'disabled' : '';
             const purchasedClass = isPurchased ? 'purchased' : '';
-            const isPixGift = giftData.category === 'lua-de-mel';
             
             // Verifica se o presente tem uma imagem. Adiciona um placeholder se não tiver.
             const imageHtml = giftData.image 
@@ -121,12 +121,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 const giftId = link.getAttribute('data-gift-id');
                 const gift = giftsData[giftId];
                 
-                if (link.textContent.trim() === 'Doar Valor') {
+                if (link.textContent.trim() === 'Doar Valor' && gift.status.toLowerCase() === 'disponível') {
                     link.addEventListener('click', function() {
                         lastClickedGiftId = giftId;
                         pixModal.show();
                     });
-                } else if (link.textContent.trim() === 'Ver na Loja') {
+                } else if (link.textContent.trim() === 'Ver na Loja' && gift.status.toLowerCase() === 'disponível') {
                     link.addEventListener('click', function() {
                         lastClickedGiftId = giftId;
                         // O modal de confirmação já é aberto pelo onclick do HTML para esses links

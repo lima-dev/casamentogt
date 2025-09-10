@@ -85,10 +85,12 @@
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
-                        <p>Agradecemos imensamente sua generosidade! Você pode fazer sua contribuição via Pix para:</p>
-                        <p><strong>Chave Pix (E-mail):</strong> seu.email@exemplo.com</p>
-                        <p><strong>Chave Pix (Telefone):</strong> (XX) XXXXX-XXXX</p>
-                        <p><strong>Chave Pix (CNPJ/CPF - se for o caso):</strong> XXXXXXXXXXXXXX</p>
+                        <p>Agradecemos sua generosidade! Faça sua contribuição via Pix para:</p>
+                        <p><strong>Chave Pix (CPF):</strong></p>
+                        <div class="input-group mb-3">
+                            <input type="text" class="form-control" id="pixKey" value="123.456.789-00" readonly>
+                            <button class="btn btn-outline-secondary" type="button" id="copyPixBtn">Copiar</button>
+                        </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Ainda não doei</button>

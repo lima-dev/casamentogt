@@ -1,13 +1,11 @@
 // js/script.js
 
-// Firebase Configurações (já estão no HTML)
-const database = firebase.database();
-
-// Lógica para o contador regressivo (sem alterações)
 document.addEventListener('DOMContentLoaded', function() {
-    const countdownDate = new Date('Octuber 250, 2025 15:30:00').getTime(); 
+    // --- Lógica do Contador Regressivo (Apenas para a página index.html) ---
+    const countdownDate = new Date('Octuber 25, 2025 15:30:00').getTime(); 
+
     if (document.getElementById('countdown-timer')) {
-        const x = setInterval(function() {
+        const countdownInterval = setInterval(function() {
             const now = new Date().getTime();
             const distance = countdownDate - now;
 
@@ -16,225 +14,228 @@ document.addEventListener('DOMContentLoaded', function() {
             const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
             const seconds = Math.floor((distance % (1000 * 60)) / 1000);
 
-            document.getElementById('days').innerHTML = days;
-            document.getElementById('hours').innerHTML = hours;
-            document.getElementById('minutes').innerHTML = minutes;
-            document.getElementById('seconds').innerHTML = seconds;
+            const daysEl = document.getElementById('days');
+            const hoursEl = document.getElementById('hours');
+            const minutesEl = document.getElementById('minutes');
+            const secondsEl = document.getElementById('seconds');
+
+            if (daysEl) daysEl.innerHTML = String(days).padStart(2, '0');
+            if (hoursEl) hoursEl.innerHTML = String(hours).padStart(2, '0');
+            if (minutesEl) minutesEl.innerHTML = String(minutes).padStart(2, '0');
+            if (secondsEl) secondsEl.innerHTML = String(seconds).padStart(2, '0');
 
             if (distance < 0) {
-                clearInterval(x);
-                document.getElementById('countdown-timer').innerHTML = "O grande dia chegou!";
+                clearInterval(countdownInterval);
+                const countdownTimerEl = document.getElementById('countdown-timer');
+                if (countdownTimerEl) countdownTimerEl.innerHTML = '<p class="display-4">É HOJE!</p>';
             }
         }, 1000);
     }
-});
 
-// Lógica para a transição de páginas
-window.addEventListener('beforeunload', function() {
-    document.getElementById('pageTransitionOverlay').classList.add('is-leaving');
-});
+    // --- Lógica de Lista de Presentes com Firebase (Apenas na página presentes.html) ---
+    if (window.location.pathname.includes('presentes.html')) {
+        const filterButtons = document.querySelectorAll('[data-filter]');
+        const categorySections = document.querySelectorAll('.category-section');
+        const searchInput = document.getElementById('search-input');
+        const clearSearchButton = document.getElementById('clear-search');
+        const confirmacaoModal = new bootstrap.Modal(document.getElementById('confirmacaoModal'));
+        const btnConfirmarCompra = document.getElementById('btnConfirmarCompra');
 
-document.addEventListener('DOMContentLoaded', function() {
-    setTimeout(function() {
-        document.getElementById('pageTransitionOverlay').classList.add('is-loaded');
-    }, 100);
-});
+        let currentFilter = 'all'; 
+        let lastClickedGift = null;
+        
+        const database = firebase.database();
+        const giftsRef = database.ref('gifts');
 
+        /**
+         * Cria e retorna o HTML de um card de presente.
+         */
+        function createGiftCardHtml(giftId, giftData) {
+            // Verifica se o presente tem status e se foi comprado
+            const isPurchased = giftData.status && giftData.status.toLowerCase() === 'comprado';
+            const buttonText = isPurchased ? 'Presente Comprado' : 'Ver na Loja';
+            const buttonDisabled = isPurchased ? 'disabled' : '';
+            const purchasedClass = isPurchased ? 'purchased' : '';
+            
+            // Verifica se o presente tem uma imagem. Adiciona um placeholder se não tiver.
+            const imageHtml = giftData.image 
+                ? `<img src="${giftData.image}" class="card-img-top img-fluid" alt="Imagem do presente ${giftData.title}">` 
+                : `<div class="card-img-top-placeholder d-flex align-items-center justify-content-center bg-light text-muted">Sem Imagem</div>`;
 
-// Funções para a página de presentes
-if (document.getElementById('lista-presentes')) {
-    
-    // Referências no HTML para as categorias e a lista de presentes
-    const categories = {
-        'casa-e-cozinha': document.getElementById('casa-e-cozinha-list'),
-        'eletrodomesticos': document.getElementById('eletrodomesticos-list'),
-        'eletronicos': document.getElementById('eletronicos-list'),
-        'lua-de-mel': document.getElementById('lua-de-mel-list')
-    };
+            // Verifica se o presente tem título e descrição.
+            const title = giftData.title ? giftData.title : 'Presente Indefinido';
+            const description = giftData.description ? giftData.description : 'Sem descrição.';
+            const link = giftData.link ? giftData.link : '#';
 
-    const sections = {
-        'casa-e-cozinha': document.getElementById('casa-e-cozinha-section'),
-        'eletrodomesticos': document.getElementById('eletrodomesticos-section'),
-        'eletronicos': document.getElementById('eletronicos-section'),
-        'lua-de-mel': document.getElementById('lua-de-mel-section')
-    };
-    
-    // Funções auxiliares
-    
-    function createGiftCard(gift, id) {
-        let buttonContent, buttonClass;
-        if (gift.disponivel === true) {
-            if (gift.categoria === 'lua-de-mel') {
-                buttonContent = 'Doar Valor';
-                buttonClass = 'btn-primary-alt donate-pix-btn'; // Classe para o botão de Pix
-            } else {
-                buttonContent = gift.link ? 'Comprar Presente' : 'Reservar Presente';
-                buttonClass = 'btn-primary-alt buy-reserve-btn';
-            }
-        } else {
-            buttonContent = 'Indisponível';
-            buttonClass = 'btn-secondary disabled';
-        }
-
-        const formattedPrice = `R$ ${parseFloat(gift.preco).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
-        return `
-            <div class="col present-item" data-category="${gift.categoria}" data-item-id="${id}">
-                <div class="card h-100 bg-transparent border-light">
-                    ${gift.imagem ? `<img src="${gift.imagem}" class="card-img-top" alt="${gift.nome}">` : `<div class="card-img-top-placeholder d-flex align-items-center justify-content-center"><span>Imagem em breve</span></div>`}
-                    <div class="card-body">
-                        <div>
-                            <h5 class="card-title">${gift.nome}</h5>
-                            <p class="card-text">${gift.descricao}</p>
-                            <h6 class="card-subtitle mb-2">${formattedPrice}</h6>
+            return `
+                <div class="col present-item ${purchasedClass}" data-gift-id="${giftId}" data-category="${giftData.category}">
+                    <div class="card h-100 shadow-sm">
+                        ${imageHtml}
+                        <div class="card-body d-flex flex-column"> 
+                            <div>
+                                <h5 class="card-title">${title}</h5>
+                                <p class="card-text">${description}</p>
+                            </div>
+                            <a href="${link}" target="_blank" class="btn btn-primary-alt mt-auto ${buttonDisabled}" ${buttonDisabled} data-gift-id="${giftId}">
+                                ${buttonText}
+                            </a>
                         </div>
-                        <button type="button" class="btn ${buttonClass}" data-gift-id="${id}" ${gift.disponivel === false ? 'disabled' : ''}>
-                            ${buttonContent}
-                        </button>
                     </div>
                 </div>
-            </div>
-        `;
-    }
+            `;
+        }
 
-    // Carrega e renderiza os presentes do Firebase
-    database.ref('presentes').on('value', (snapshot) => {
-        const presentes = snapshot.val();
-        if (presentes) {
-            // Limpa as listas de presentes existentes
-            Object.values(categories).forEach(list => list.innerHTML = '');
-
-            Object.keys(presentes).forEach(id => {
-                const present = presentes[id];
-                const card = createGiftCard(present, id);
-                if (categories[present.categoria]) {
-                    categories[present.categoria].innerHTML += card;
+        /**
+         * Renderiza todos os presentes na página, baseando-se nos dados do Firebase.
+         */
+        function renderGifts(giftsData) {
+            // Limpa todas as seções dinâmicas
+            document.querySelectorAll('.row[id$="-list"]').forEach(list => {
+                if(list.parentElement.id !== 'lua-de-mel-section') {
+                    list.innerHTML = '';
                 }
             });
 
-            // Adiciona event listeners aos botões "Comprar" ou "Doar"
-            document.querySelectorAll('.btn-primary-alt').forEach(button => {
-                button.addEventListener('click', (event) => {
-                    const giftId = event.target.dataset.giftId;
-                    const gift = presentes[giftId];
-                    if (gift) {
-                        if (gift.categoria === 'lua-de-mel') {
-                            showDonateModal(gift, giftId);
+            for (const giftId in giftsData) {
+                const gift = giftsData[giftId];
+                // Ignora o presente se a categoria for 'lua-de-mel' (já está no HTML)
+                if (gift.category === 'lua-de-mel') {
+                    continue;
+                }
+
+                const listContainerId = `${gift.category}-list`;
+                const listContainer = document.getElementById(listContainerId);
+                
+                if (listContainer) {
+                    const giftHtml = createGiftCardHtml(giftId, gift);
+                    listContainer.innerHTML += giftHtml;
+                }
+            }
+
+            // Atacha os event listeners nos novos botões
+            attachEventListeners();
+        }
+
+        /**
+         * Anexa os event listeners aos botões dos presentes.
+         */
+        function attachEventListeners() {
+            const giftLinks = document.querySelectorAll('.present-item a.btn');
+            giftLinks.forEach(link => {
+                if (!link.dataset.bsToggle) { 
+                    link.addEventListener('click', function(event) {
+                        lastClickedGift = this.getAttribute('data-gift-id');
+                        
+                        setTimeout(() => {
+                            confirmacaoModal.show();
+                        }, 1000); 
+                    });
+                }
+            });
+
+            if (btnConfirmarCompra) {
+                btnConfirmarCompra.addEventListener('click', function() {
+                    if (lastClickedGift) {
+                        giftsRef.child(lastClickedGift).update({ status: 'comprado' })
+                            .then(() => {
+                                console.log("Status atualizado no Firebase!");
+                            })
+                            .catch((error) => {
+                                console.error("Erro ao atualizar o status: ", error);
+                            });
+                        
+                        confirmacaoModal.hide();
+                        lastClickedGift = null;
+                    }
+                });
+            }
+
+
+            document.getElementById('confirmacaoModal').addEventListener('hidden.bs.modal', function () {
+                lastClickedGift = null;
+            });
+        }
+
+        // --- Event Listeners para Filtro e Pesquisa ---
+        filterButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                filterButtons.forEach(btn => btn.classList.remove('active'));
+                this.classList.add('active');
+                currentFilter = this.getAttribute('data-filter');
+                
+                categorySections.forEach(section => {
+                    const sectionCategory = section.id.replace('-section', '');
+                    if (currentFilter === 'all' || sectionCategory === currentFilter) {
+                        section.style.display = 'block';
+                    } else {
+                        section.style.display = 'none';
+                    }
+                });
+            });
+        });
+
+        if (searchInput) {
+            searchInput.addEventListener('keyup', () => {
+                const searchTerm = searchInput.value.toLowerCase().trim();
+                document.querySelectorAll('.present-item').forEach(item => {
+                    const title = item.querySelector('.card-title')?.textContent.toLowerCase() || '';
+                    const description = item.querySelector('.card-text')?.textContent.toLowerCase() || '';
+                    const category = item.getAttribute('data-category') || '';
+
+                    if (searchTerm === '' || title.includes(searchTerm) || description.includes(searchTerm)) {
+                        if (currentFilter === 'all' || category === currentFilter) {
+                            item.style.display = 'block';
                         } else {
-                            handleGiftClick(gift, giftId);
+                            item.style.display = 'none';
                         }
+                    } else {
+                        item.style.display = 'none';
                     }
                 });
             });
         }
-    });
 
-    // Função para lidar com a doação via Pix (Lua de Mel)
-    function showDonateModal(gift, giftId) {
-        const pixModal = new bootstrap.Modal(document.getElementById('pixModal'));
-        const modalBody = document.querySelector('#pixModal .modal-body');
-
-        // Conteúdo do modal de Pix
-        modalBody.innerHTML = `
-            <p>Obrigado por contribuir para nossa Lua de Mel! O valor de <strong>R$ ${parseFloat(gift.preco).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong> pode ser enviado para a chave Pix abaixo.</p>
-            <p><strong>Chave Pix:</strong> (Chave do Pix que você irá adicionar manualmente)</p>
-            <p><strong>Nome:</strong> (Nome do Titular)</p>
-        `;
-        
-        // Adiciona o botão "Já doei" no modal
-        const confirmButton = document.createElement('button');
-        confirmButton.type = 'button';
-        confirmButton.id = 'btnConfirmarDoacao';
-        confirmButton.className = 'btn btn-primary-alt';
-        confirmButton.textContent = 'Já Doei!';
-        
-        // Remove botões anteriores do footer e adiciona o novo
-        const modalFooter = document.querySelector('#pixModal .modal-footer');
-        modalFooter.innerHTML = ''; // Limpa o footer
-        const closeButton = document.createElement('button');
-        closeButton.type = 'button';
-        closeButton.className = 'btn btn-secondary';
-        closeButton.setAttribute('data-bs-dismiss', 'modal');
-        closeButton.textContent = 'Ainda não doei';
-        
-        modalFooter.appendChild(closeButton);
-        modalFooter.appendChild(confirmButton);
-
-        confirmButton.addEventListener('click', () => {
-            updateGiftStatus(giftId, false);
-            pixModal.hide();
-        });
-
-        pixModal.show();
-    }
-    
-    // Funções de atualização do Firebase
-    function updateGiftStatus(id, newStatus) {
-        database.ref(`presentes/${id}`).update({
-            disponivel: newStatus
-        }).then(() => {
-            console.log("Status do presente atualizado com sucesso!");
-        }).catch((error) => {
-            console.error("Erro ao atualizar o status do presente: ", error);
-        });
-    }
-
-    function handleGiftClick(gift, id) {
-        // Redireciona para o link da loja e abre o modal de confirmação
-        if (gift.link) {
-            window.open(gift.link, '_blank');
-            const confirmacaoModal = new bootstrap.Modal(document.getElementById('confirmacaoModal'));
-            confirmacaoModal.show();
-            // Adiciona o listener para o botão "Sim, eu comprei!"
-            document.getElementById('btnConfirmarCompra').onclick = () => {
-                updateGiftStatus(id, false);
-                confirmacaoModal.hide();
-            };
-        } else {
-            // Se não tem link, apenas marca como indisponível
-            updateGiftStatus(id, false);
+        if (clearSearchButton) {
+            clearSearchButton.addEventListener('click', function() {
+                searchInput.value = '';
+                // Simula um clique no botão de todas as categorias para resetar a visualização
+                document.querySelector('[data-filter="all"]').click();
+            });
         }
+
+
+        // Inicialização: Lê o estado inicial do banco de dados e escuta por mudanças
+        giftsRef.on('value', (snapshot) => {
+            const giftsData = snapshot.val();
+            renderGifts(giftsData);
+            // Simula um clique no botão "Todas as Categorias" para aplicar o filtro inicial
+            document.querySelector('[data-filter="all"]').click(); 
+        });
     }
 
-    // Lógica para os botões de filtro
-    document.querySelectorAll('.gifts-category-filters .btn').forEach(button => {
-        button.addEventListener('click', function() {
-            document.querySelectorAll('.gifts-category-filters .btn').forEach(btn => btn.classList.remove('active'));
-            this.classList.add('active');
-
-            const filter = this.dataset.filter;
-            document.querySelectorAll('.category-section').forEach(section => {
-                if (filter === 'all' || section.id === `${filter}-section`) {
-                    section.style.display = 'block';
-                } else {
-                    section.style.display = 'none';
-                }
-            });
-        });
+    // --- Lógica para Efeito de Fade entre Páginas ---
+    const overlay = document.getElementById('pageTransitionOverlay');
+    requestAnimationFrame(() => {
+        overlay.classList.add('is-loaded'); 
+    });
+    
+    overlay.addEventListener('transitionend', function() {
+        if (overlay.classList.contains('is-loaded') && overlay.style.opacity === '0') {
+            overlay.style.visibility = 'hidden';
+            overlay.classList.remove('is-loaded');
+        }
     });
 
-    // Lógica para a pesquisa
-    const searchInput = document.getElementById('search-input');
-    if (searchInput) {
-        const clearSearchBtn = document.getElementById('clear-search');
-        searchInput.addEventListener('keyup', (event) => {
-            const searchTerm = event.target.value.toLowerCase();
-            document.querySelectorAll('.present-item').forEach(item => {
-                const title = item.querySelector('.card-title').textContent.toLowerCase();
-                if (title.includes(searchTerm)) {
-                    item.style.display = 'block';
-                } else {
-                    item.style.display = 'none';
-                }
-            });
+    document.querySelectorAll('a[href^="."], a[href^="/"]').forEach(link => {
+        if (link.hash && link.pathname === window.location.pathname) { return; }
+        if (link.target === '_blank' || link.getAttribute('data-bs-toggle') === 'modal') { return; }
+        link.addEventListener('click', function(event) {
+            event.preventDefault();
+            const targetUrl = this.href;
+            overlay.classList.add('is-leaving');
+            setTimeout(() => {
+                window.location.href = targetUrl;
+            }, 800); 
         });
-
-        clearSearchBtn.addEventListener('click', () => {
-            searchInput.value = '';
-            document.querySelectorAll('.present-item').forEach(item => {
-                item.style.display = 'block';
-            });
-        });
-    }
-
-}
+    });
+});

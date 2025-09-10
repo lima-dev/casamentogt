@@ -102,6 +102,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <h5 class="card-title">${title}</h5>
                                 <p class="card-text">${description}</p>
                             </div>
+                            <br/>
                             <button type="button" class="btn btn-primary-alt mt-auto ${buttonDisabled}" ${buttonDisabled} data-gift-id="${giftId}" ${isPixGift ? '' : `onclick="window.open('${link}', '_blank')" ${modalAttribute}`}>
                                 ${buttonText}
                             </button>

@@ -39,10 +39,10 @@ document.addEventListener('DOMContentLoaded', function() {
         const searchInput = document.getElementById('search-input');
         const clearSearchButton = document.getElementById('clear-search');
         const confirmacaoModal = new bootstrap.Modal(document.getElementById('confirmacaoModal'));
-        const btnConfirmarCompra = document.getElementById('btnConfirmarCompra');
-
+        const pixModal = new bootstrap.Modal(document.getElementById('pixModal'));
+        
         let currentFilter = 'all'; 
-        let lastClickedGift = null;
+        let lastClickedGiftId = null;
         
         const database = firebase.database();
         const giftsRef = database.ref('gifts');
@@ -51,21 +51,23 @@ document.addEventListener('DOMContentLoaded', function() {
          * Cria e retorna o HTML de um card de presente.
          */
         function createGiftCardHtml(giftId, giftData) {
-            // Verifica se o presente tem status e se foi comprado
             const isPurchased = giftData.status && giftData.status.toLowerCase() === 'comprado';
-            const buttonText = isPurchased ? 'Presente Comprado' : 'Ver na Loja';
+            const buttonText = giftData.category === 'lua-de-mel' ? 'Doar Valor' : (isPurchased ? 'Presente Comprado' : 'Ver na Loja');
             const buttonDisabled = isPurchased ? 'disabled' : '';
             const purchasedClass = isPurchased ? 'purchased' : '';
+            const isPixGift = giftData.category === 'lua-de-mel';
             
             // Verifica se o presente tem uma imagem. Adiciona um placeholder se não tiver.
             const imageHtml = giftData.image 
                 ? `<img src="${giftData.image}" class="card-img-top img-fluid" alt="Imagem do presente ${giftData.title}">` 
                 : `<div class="card-img-top-placeholder d-flex align-items-center justify-content-center bg-light text-muted">Sem Imagem</div>`;
 
-            // Verifica se o presente tem título e descrição.
             const title = giftData.title ? giftData.title : 'Presente Indefinido';
             const description = giftData.description ? giftData.description : 'Sem descrição.';
             const link = giftData.link ? giftData.link : '#';
+
+            // Determina qual modal o botão abrirá (se for um presente normal)
+            const modalAttribute = isPixGift ? '' : `data-bs-toggle="modal" data-bs-target="#confirmacaoModal"`;
 
             return `
                 <div class="col present-item ${purchasedClass}" data-gift-id="${giftId}" data-category="${giftData.category}">
@@ -76,9 +78,9 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <h5 class="card-title">${title}</h5>
                                 <p class="card-text">${description}</p>
                             </div>
-                            <a href="${link}" target="_blank" class="btn btn-primary-alt mt-auto ${buttonDisabled}" ${buttonDisabled} data-gift-id="${giftId}">
+                            <button type="button" class="btn btn-primary-alt mt-auto ${buttonDisabled}" ${buttonDisabled} data-gift-id="${giftId}" ${isPixGift ? '' : `onclick="window.open('${link}', '_blank')" ${modalAttribute}`}>
                                 ${buttonText}
-                            </a>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -89,20 +91,11 @@ document.addEventListener('DOMContentLoaded', function() {
          * Renderiza todos os presentes na página, baseando-se nos dados do Firebase.
          */
         function renderGifts(giftsData) {
-            // Limpa todas as seções dinâmicas
-            document.querySelectorAll('.row[id$="-list"]').forEach(list => {
-                if(list.parentElement.id !== 'lua-de-mel-section') {
-                    list.innerHTML = '';
-                }
-            });
+            // Limpa todas as seções
+            document.querySelectorAll('.row[id$="-list"]').forEach(list => list.innerHTML = '');
 
             for (const giftId in giftsData) {
                 const gift = giftsData[giftId];
-                // Ignora o presente se a categoria for 'lua-de-mel' (já está no HTML)
-                // if (gift.category === 'lua-de-mel') {
-                //     continue;
-                // }
-
                 const listContainerId = `${gift.category}-list`;
                 const listContainer = document.getElementById(listContainerId);
                 
@@ -111,48 +104,75 @@ document.addEventListener('DOMContentLoaded', function() {
                     listContainer.innerHTML += giftHtml;
                 }
             }
-
-            // Atacha os event listeners nos novos botões
-            attachEventListeners();
+            attachEventListeners(giftsData);
         }
 
         /**
          * Anexa os event listeners aos botões dos presentes.
          */
-        function attachEventListeners() {
-            const giftLinks = document.querySelectorAll('.present-item a.btn');
+        function attachEventListeners(giftsData) {
+            const giftLinks = document.querySelectorAll('.present-item .btn-primary-alt');
             giftLinks.forEach(link => {
-                if (!link.dataset.bsToggle) { 
-                    link.addEventListener('click', function(event) {
-                        lastClickedGift = this.getAttribute('data-gift-id');
-                        
-                        setTimeout(() => {
-                            confirmacaoModal.show();
-                        }, 1000); 
+                // Remove listeners anteriores para evitar duplicação
+                link.replaceWith(link.cloneNode(true));
+            });
+
+            document.querySelectorAll('.present-item .btn-primary-alt').forEach(link => {
+                const giftId = link.getAttribute('data-gift-id');
+                const gift = giftsData[giftId];
+                
+                if (link.textContent.trim() === 'Doar Valor') {
+                    link.addEventListener('click', function() {
+                        lastClickedGiftId = giftId;
+                        pixModal.show();
+                    });
+                } else if (link.textContent.trim() === 'Ver na Loja') {
+                    link.addEventListener('click', function() {
+                        lastClickedGiftId = giftId;
+                        // O modal de confirmação já é aberto pelo onclick do HTML para esses links
                     });
                 }
             });
 
-            if (btnConfirmarCompra) {
-                btnConfirmarCompra.addEventListener('click', function() {
-                    if (lastClickedGift) {
-                        giftsRef.child(lastClickedGift).update({ status: 'comprado' })
+            // Listener para o botão "Sim, eu comprei!" do modal de confirmação
+            document.getElementById('btnConfirmarCompra').addEventListener('click', function() {
+                if (lastClickedGiftId) {
+                    giftsRef.child(lastClickedGiftId).update({ status: 'comprado' })
+                        .then(() => {
+                            console.log("Status atualizado no Firebase!");
+                        })
+                        .catch((error) => {
+                            console.error("Erro ao atualizar o status: ", error);
+                        });
+                    confirmacaoModal.hide();
+                    lastClickedGiftId = null;
+                }
+            });
+
+            // Listener para o botão "Já doei!" do modal de Pix
+            const btnConfirmarDoacao = document.querySelector('#pixModal #btnConfirmarDoacao');
+            if(btnConfirmarDoacao) {
+                 btnConfirmarDoacao.addEventListener('click', function() {
+                    if (lastClickedGiftId) {
+                        giftsRef.child(lastClickedGiftId).update({ status: 'comprado' })
                             .then(() => {
-                                console.log("Status atualizado no Firebase!");
+                                console.log("Status de doação atualizado no Firebase!");
                             })
                             .catch((error) => {
-                                console.error("Erro ao atualizar o status: ", error);
+                                console.error("Erro ao atualizar o status de doação: ", error);
                             });
-                        
-                        confirmacaoModal.hide();
-                        lastClickedGift = null;
+                        pixModal.hide();
+                        lastClickedGiftId = null;
                     }
                 });
             }
 
 
             document.getElementById('confirmacaoModal').addEventListener('hidden.bs.modal', function () {
-                lastClickedGift = null;
+                lastClickedGiftId = null;
+            });
+            document.getElementById('pixModal').addEventListener('hidden.bs.modal', function () {
+                lastClickedGiftId = null;
             });
         }
 
@@ -198,7 +218,6 @@ document.addEventListener('DOMContentLoaded', function() {
         if (clearSearchButton) {
             clearSearchButton.addEventListener('click', function() {
                 searchInput.value = '';
-                // Simula um clique no botão de todas as categorias para resetar a visualização
                 document.querySelector('[data-filter="all"]').click();
             });
         }
@@ -208,7 +227,6 @@ document.addEventListener('DOMContentLoaded', function() {
         giftsRef.on('value', (snapshot) => {
             const giftsData = snapshot.val();
             renderGifts(giftsData);
-            // Simula um clique no botão "Todas as Categorias" para aplicar o filtro inicial
             document.querySelector('[data-filter="all"]').click(); 
         });
     }

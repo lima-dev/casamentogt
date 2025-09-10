@@ -47,30 +47,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const database = firebase.database();
         const giftsRef = database.ref('gifts');
 
-        // Lógica para o botão de copiar a chave Pix
-        document.getElementById('pixModal').addEventListener('shown.bs.modal', function() {
-            const copyButton = document.getElementById('copyPixBtn');
-            if (copyButton) {
-                copyButton.addEventListener('click', () => {
-                    const pixKeyInput = document.getElementById('pixKey');
-                    if (pixKeyInput) {
-                        pixKeyInput.select();
-                        pixKeyInput.setSelectionRange(0, 99999); // Para mobile
-                        navigator.clipboard.writeText(pixKeyInput.value)
-                            .then(() => {
-                                copyButton.textContent = 'Copiado!';
-                                setTimeout(() => {
-                                    copyButton.textContent = 'Copiar';
-                                }, 2000);
-                            })
-                            .catch(err => {
-                                console.error('Erro ao copiar a chave Pix: ', err);
-                            });
-                    }
-                });
-            }
-        });
-
         /**
          * Cria e retorna o HTML de um card de presente.
          */
